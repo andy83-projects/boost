@@ -1,0 +1,439 @@
+/*
+  Analog Input
+
+  The circuit:
+  - Gauge control from PWM
+  pwmoutput value to gauge
+  reference
+  
+KPA	Gauge PSI	Voltage Sensor	
+20	-11.7992	0.25	
+25	-11.074	0.3	12
+30	-10.3488	0.4	16
+35	-9.6236	0.5	17
+40	-8.8984	0.6	19
+45	-8.1732	0.7	21
+50	-7.448	0.8	23
+55	-6.7228	0.9	25
+60	-5.9976	1	28
+65	-5.2724	1.1	30
+70	-4.5472	1.2	33
+75	-3.822	1.3	35
+80	-3.0968	1.4	37
+85	-2.3716	1.5	40
+90	-1.6464	1.6	42
+95	-0.9212	1.7	45
+100	-0.196	1.8	46
+105	0.5292	1.9	48
+110	1.2544	2	50
+115	1.9796	2.1	55
+120	2.7048	2.2	59
+125	3.43	2.3	63
+130	4.1552	2.4	69
+135	4.8804	2.5	75
+140	5.6056	2.6	80
+145	6.3308	2.7	85
+150	7.056	2.8	90
+155	7.7812	2.9	95
+160	8.5064	3	98
+165	9.2316	3.1	100
+170	9.9568	3.2	108
+175	10.682	3.3	111
+180	11.4072	3.4	115
+185	12.1324	3.5	117
+190	12.8576	3.6	127
+195	13.5828	3.7	130
+200	14.308	3.8	135
+205	15.0332	3.9	145
+210	15.7584	4	147
+215	16.4836	4.1	150
+220	17.2088	4.2	155
+225	17.934	4.3	159
+230	18.6592	4.4	163
+235	19.3844	4.5	172
+240	20.1096	4.6	177
+245	20.8348	4.7	180
+250	21.56	4.8	185
+255	22.2852	4.9	188
+260	23.0104	5	192
+
+
+
+
+*/
+#include <Wire.h>
+#include <Adafruit_MCP4725.h>
+
+Adafruit_MCP4725 dac;
+
+// Set this value to 9, 8, 7, 6 or 5 to adjust the resolution
+#define DAC_RESOLUTION    (8)
+
+const int numReadings = 10;
+int sensorPin = A0;    // select the input pin for the potentiometer
+int ledPin = 13;      // select the pin for the LED
+int sensorValue = 0;  // variable to store the value coming from the sensor
+int gaugepin = 3;    // gauge connected to digital pin 3
+int sweepValue = 0; // where to increment the gauge
+//int readings[numReadings]; //readings from the sensor
+int reading = 0; //readings from sensor
+int readIndex = 0; //reading index count
+int readtotal = 0; //total of all readings
+int lastsweep = 0; //the last sweep value
+float voltageAnalog = 0; //analog voltage
+
+void setup() {
+  // put your setup code here, to run once:
+
+  TCCR2B = (TCCR2B & 0b11111000) | 0x01; // change PWM output to someting inaudible
+
+
+  Serial.begin(9600);
+
+  //performs sweep up
+  for (sweepValue = 0 ; sweepValue <= 255; sweepValue += 5)
+  {
+    //  sets the value (range from 0 to 255):
+    analogWrite(gaugepin, sweepValue);
+    //  wait for smooth operation
+    delay(20);
+  }
+  delay (400);
+  //perform sweep back down
+  for (sweepValue = 240 ; sweepValue >= 0; sweepValue -= 5)
+  {
+    // sets the value (range from 0 to 240):
+    analogWrite(gaugepin, sweepValue);
+    // wait for smooth operation
+    delay(20);
+  }
+  delay (120);
+  sweepValue = 0.1;
+  lastsweep = 0;
+  analogWrite(gaugepin, sweepValue);
+  delay (60);
+
+}
+
+
+void loop()
+{
+  while (readIndex <= numReadings)
+  {
+    // read from the sensor:
+    reading = analogRead(sensorPin);
+    // add the reading to the total:
+    readtotal = readtotal + reading;
+    readIndex = readIndex + 1;
+    // if we're at the end
+    delay(2);
+  }
+  readIndex = 0;
+  sensorValue = readtotal / numReadings;
+  readtotal = 0;
+  if (sensorValue < 0)
+  {
+    sensorValue = -sensorValue;
+  }
+
+  //sensorValue = round(sensorValue*10)/10.0;
+
+
+  voltageAnalog = sensorValue * (5.0 / 1023.0);
+
+  // send it to the computer as ASCII digits
+  Serial.println("the smoothed sensor value");
+  Serial.println(sensorValue);
+  Serial.println("my voltage");
+  Serial.println(voltageAnalog);
+
+  sweepValue = 255 * (voltageAnalog / 5);
+  if (sweepValue > 255)
+  {
+    sweepValue = 255;
+  }
+  Serial.println("sweep value");
+  Serial.println(sweepValue);
+  Serial.println("last sweep");
+  Serial.println(lastsweep);
+
+
+if (voltageAnalog <= 0.25)
+ {
+    sweepValue=0;
+     Serial.println("20kpa or less");
+  }
+if ((0.26 <=voltageAnalog) && (voltageAnalog <= 0.39))
+ {
+  sweepValue=12;
+    Serial.println("25kpa");
+ }
+ if ((0.40 <= voltageAnalog) && (voltageAnalog <= 0.49))
+  {
+   sweepValue= 16;
+    Serial.println("30kpa");   
+  }
+if ((0.50 <= voltageAnalog) && (voltageAnalog <= 0.59))
+  {
+   sweepValue= 18;
+    Serial.println("35kpa");   
+  }
+if ((0.60 <= voltageAnalog) && (voltageAnalog <= 0.69))
+  {
+   sweepValue= 19;
+    Serial.println("40kpa");   
+  }
+
+if ((0.70 <= voltageAnalog) && (voltageAnalog <= 0.79))
+  {
+   sweepValue= 21;
+    Serial.println("45kpa");   
+  }
+if ((0.80 <= voltageAnalog) && (voltageAnalog <= 0.89))
+  {
+   sweepValue= 23;
+    Serial.println("50kpa");   
+  }
+
+if ((0.90 <= voltageAnalog) && (voltageAnalog <= 0.99))
+  {
+   sweepValue= 25;
+    Serial.println("55kpa");   
+  }
+
+if ((1.00 <= voltageAnalog) && (voltageAnalog <= 1.09))
+  {
+   sweepValue= 28;
+    Serial.println("60kpa");   
+  }
+
+if ((1.1 <= voltageAnalog) && (voltageAnalog <= 1.19))
+  {
+   sweepValue= 30;
+    Serial.println("65kpa");   
+  }
+if ((1.2 <= voltageAnalog) && (voltageAnalog <= 1.29))
+  {
+   sweepValue= 33;
+    Serial.println("70kpa");   
+  }
+
+if ((1.3 <= voltageAnalog) && (voltageAnalog <= 1.39))
+  {
+   sweepValue= 35;
+    Serial.println("75kpa");   
+  }
+  
+if ((1.40 <= voltageAnalog) && (voltageAnalog <= 1.49))
+  {
+   sweepValue= 37;
+    Serial.println("80kpa");   
+  }
+
+if ((1.5 <= voltageAnalog) && (voltageAnalog <= 1.59))
+  {
+   sweepValue= 40;
+    Serial.println("85kpa");   
+  }
+if ((1.6 <= voltageAnalog) && (voltageAnalog <= 1.69))
+  {
+   sweepValue= 42;
+    Serial.println("90kpa");   
+  }
+
+if ((1.7 <= voltageAnalog) && (voltageAnalog <= 1.79))
+  {
+   sweepValue= 45;
+    Serial.println("95kpa");   
+  }
+
+if ((1.80 <= voltageAnalog) && (voltageAnalog <= 1.89))
+  {
+   sweepValue= 46;
+    Serial.println("100kpa");   
+  }
+
+if ((1.9 <= voltageAnalog) && (voltageAnalog <= 1.99))
+  {
+   sweepValue= 48;
+    Serial.println("105kpa");   
+  }
+if ((2.0 <= voltageAnalog) && (voltageAnalog <= 2.09))
+  {
+   sweepValue= 50;
+    Serial.println("110kpa");   
+  }
+
+if ((2.1 <= voltageAnalog) && (voltageAnalog <= 2.19))
+  {
+   sweepValue= 55;
+    Serial.println("115kpa");   
+  }
+  
+if ((2.2 <= voltageAnalog) && (voltageAnalog <= 2.29))
+  {
+   sweepValue= 59;
+    Serial.println("120kpa");   
+  }
+
+if ((2.3 <= voltageAnalog) && (voltageAnalog <= 2.39))
+  {
+   sweepValue= 63;
+    Serial.println("125kpa");   
+  }
+if ((2.4 <= voltageAnalog) && (voltageAnalog <= 2.49))
+  {
+   sweepValue= 69;
+    Serial.println("130kpa");   
+  }
+
+if ((2.5 <= voltageAnalog) && (voltageAnalog <= 2.59))
+  {
+   sweepValue= 75;
+    Serial.println("135kpa");   
+  }
+if ((2.6 <= voltageAnalog) && (voltageAnalog <= 2.69))
+  {
+   sweepValue= 80;
+    Serial.println("140kpa");   
+  }
+
+if ((2.7 <= voltageAnalog) && (voltageAnalog <= 2.79))
+  {
+   sweepValue= 85;
+    Serial.println("145kpa");   
+  }
+  
+if ((2.8 <= voltageAnalog) && (voltageAnalog <= 2.89))
+  {
+   sweepValue= 90;
+    Serial.println("150kpa");   
+  }
+
+if ((2.9 <= voltageAnalog) && (voltageAnalog <= 2.99))
+  {
+   sweepValue= 95;
+    Serial.println("155kpa");   
+  }
+if ((3.0 <= voltageAnalog) && (voltageAnalog <= 3.09))
+  {
+   sweepValue= 98;
+    Serial.println("160kpa");   
+  }
+
+if ((3.1 <= voltageAnalog) && (voltageAnalog <= 3.19))
+  {
+   sweepValue= 100;
+    Serial.println("165kpa");   
+  }
+
+if ((3.2 <= voltageAnalog) && (voltageAnalog <= 3.29))
+  {
+   sweepValue= 108;
+    Serial.println("170kpa");   
+  }
+if ((3.3 <= voltageAnalog) && (voltageAnalog <= 3.39))
+  {
+   sweepValue= 111;
+    Serial.println("175kpa");   
+  }
+
+if ((3.4 <= voltageAnalog) && (voltageAnalog <= 3.49))
+  {
+   sweepValue= 115;
+    Serial.println("180kpa");   
+  }
+  
+if ((3.5 <= voltageAnalog) && (voltageAnalog <= 3.59))
+  {
+   sweepValue= 117;
+    Serial.println("185kpa");   
+  }
+
+if ((3.6 <= voltageAnalog) && (voltageAnalog <= 3.69))
+  {
+   sweepValue= 127;
+    Serial.println("190kpa");   
+  }
+if ((3.7 <= voltageAnalog) && (voltageAnalog <= 3.79))
+  {
+   sweepValue= 130;
+    Serial.println("195kpa");   
+  }
+
+if ((3.8 <= voltageAnalog) && (voltageAnalog <= 3.89))
+  {
+   sweepValue= 135;
+    Serial.println("200kpa");   
+  }
+if ((3.9 <= voltageAnalog) && (voltageAnalog <= 3.99))
+  {
+   sweepValue= 145;
+    Serial.println("205kpa");   
+  }
+if ((4.0 <= voltageAnalog) && (voltageAnalog <= 4.09))
+  {
+   sweepValue= 147;
+    Serial.println("210kpa");   
+  }
+
+if ((4.1 <= voltageAnalog) && (voltageAnalog <= 4.19))
+  {
+   sweepValue= 150;
+    Serial.println("215kpa");   
+  }
+  
+if ((4.2 <= voltageAnalog) && (voltageAnalog <= 4.29))
+  {
+   sweepValue= 155;
+    Serial.println("220kpa");   
+  }
+
+if ((4.3 <= voltageAnalog) && (voltageAnalog <= 4.39))
+  {
+   sweepValue= 159;
+    Serial.println("225kpa");   
+  }
+if ((4.4 <= voltageAnalog) && (voltageAnalog <= 4.49))
+  {
+   sweepValue= 163;
+    Serial.println("230kpa");   
+  }
+
+if ((4.5 <= voltageAnalog) && (voltageAnalog <= 4.59))
+  {
+   sweepValue= 172;
+    Serial.println("235kpa");   
+  }
+
+if ((4.6 <= voltageAnalog) && (voltageAnalog <= 4.69))
+  {
+   sweepValue= 177;
+    Serial.println("240kpa");   
+  }
+if ((4.7 <= voltageAnalog) && (voltageAnalog <= 4.79))
+  {
+   sweepValue= 180;
+    Serial.println("245kpa");   
+  }
+
+if ((4.8 <= voltageAnalog) && (voltageAnalog <= 4.89))
+  {
+   sweepValue= 185;
+    Serial.println("250kpa");   
+  }
+if ((4.9 <= voltageAnalog) && (voltageAnalog <= 4.99))
+  {
+   sweepValue= 188;
+    Serial.println("255kpa");   
+  }
+
+if (5 <= voltageAnalog)
+  {
+   sweepValue= 192;
+    Serial.println("260kpa");
+  }
+  analogWrite(gaugepin, sweepValue);
+  // wait for smooth operation
+   delay (800);
+}
